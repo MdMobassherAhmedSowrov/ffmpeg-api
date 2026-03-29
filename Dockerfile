@@ -1,8 +1,8 @@
 FROM php:8.2-cli
 
-RUN apt-get update && apt-get install -y ffmpeg nodejs npm
+RUN apt-get update && apt-get install -y ffmpeg python3 python3-pip
 
-RUN npm install -g lottie-web lottie-cli
+RUN pip3 install lottie
 
 WORKDIR /app
 COPY . .
