@@ -2,29 +2,63 @@
 
 header("Content-Type: application/json");
 
+$files = array_merge(glob("*.png"), glob("*.webm"), glob("*.tgs"), glob("*.gif"));
+$now = time();
+
+foreach ($files as $file) {
+    if (is_file($file) && ($now - filemtime($file) > 300)) {
+        unlink($file);
+    }
+}
+
 if (!isset($_REQUEST['url'])) {
     echo json_encode(["error" => "No URL"]);
     exit;
 }
 
 $url = $_REQUEST['url'];
+$id = uniqid();
 
-// download file
-$input = "input.webm";
-file_put_contents($input, file_get_contents($url));
+$is_tgs = strpos($url, ".tgs") !== false;
 
-// output files
-$first = "first.png";
-$last  = "last.png";
+$input = $is_tgs ? "input_$id.tgs" : "input_$id.webm";
 
-// extract frames
-exec("ffmpeg -i $input -vf \"select=eq(n\\,0)\" -vframes 1 $first");
-exec("ffmpeg -sseof -0.3 -i $input -vframes 1 $last");
+$ch = curl_init($url);
+$fp = fopen($input, 'wb');
 
-// 🔥 return public URLs
-$base_url = "https://ffmpeg-api-1-wwn7.onrender.com/";
+curl_setopt($ch, CURLOPT_FILE, $fp);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0");
+
+curl_exec($ch);
+curl_close($ch);
+fclose($fp);
+
+if ($is_tgs) {
+    $gif = "converted_$id.gif";
+    exec("lottie_convert.py $input $gif 2>&1");
+    $input = $gif;
+}
+
+$f1 = "f1_$id.png";
+$f2 = "f2_$id.png";
+$f3 = "f3_$id.png";
+
+exec("ffmpeg -i $input -ss 1 -vframes 1 $f1 2>&1");
+exec("ffmpeg -i $input -ss 2 -vframes 1 $f2 2>&1");
+exec("ffmpeg -i $input -ss 3 -vframes 1 $f3 2>&1");
+
+if (!file_exists($f1)) {
+    echo json_encode(["error" => "Processing failed"]);
+    exit;
+}
+
+$base = "https://ffmpeg-api-1-wwn7.onrender.com/";
 
 echo json_encode([
-    "first" => $base_url . $first,
-    "last"  => $base_url . $last
+    "f1" => $base . $f1,
+    "f2" => $base . $f2,
+    "f3" => $base . $f3
 ]);
+
+unlink($input);
