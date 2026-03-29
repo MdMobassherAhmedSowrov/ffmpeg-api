@@ -1,16 +1,38 @@
-FROM php:8.2-cli
+FROM rust:alpine as builder
+RUN apk add --no-cache musl-dev
+RUN cargo install --version 1.7.0 gifski
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    python3 \
-    python3-pip \
-    python3-cairosvg \
-    shared-mime-info \
-    && rm -rf /var/lib/apt/lists/*
+FROM node:18-alpine
+COPY --from=builder /usr/local/cargo/bin/gifski /usr/local/bin/gifski
 
-RUN pip3 install lottie --break-system-packages
+RUN apk add --no-cache \
+      chromium \
+      nss \
+      freetype \
+      freetype-dev \
+      harfbuzz \
+      ca-certificates \
+      ttf-freefont \
+      git \
+      libwebp-tools \
+      ffmpeg \
+      php \
+      php-cli \
+      php-curl \
+      php-json \
+      php-openssl \
+      php-phar \
+      php-mbstring
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
+ENV CHROMIUM_PATH /usr/bin/chromium-browser
+ENV USE_SANDBOX false
 
 WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
 COPY . .
 
 CMD sh -c "php -S 0.0.0.0:${PORT:-10000}"
