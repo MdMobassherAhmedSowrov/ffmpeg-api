@@ -29,14 +29,23 @@ $fp = fopen($input, 'wb');
 curl_setopt($ch, CURLOPT_FILE, $fp);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0");
+curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
 curl_exec($ch);
+
+if (curl_errno($ch)) {
+    echo json_encode(["error" => "Download failed"]);
+    curl_close($ch);
+    fclose($fp);
+    exit;
+}
+
 curl_close($ch);
 fclose($fp);
 
 if ($is_tgs) {
     $gif = "converted_$id.gif";
-    exec("lottie_convert.py $input $gif 2>&1");
+    exec("python3 -m lottie.convert $input $gif 2>&1");
     $input = $gif;
 }
 
@@ -44,12 +53,18 @@ $f1 = "f1_$id.png";
 $f2 = "f2_$id.png";
 $f3 = "f3_$id.png";
 
-exec("ffmpeg -i $input -ss 1 -vframes 1 $f1 2>&1");
-exec("ffmpeg -i $input -ss 2 -vframes 1 $f2 2>&1");
-exec("ffmpeg -i $input -ss 3 -vframes 1 $f3 2>&1");
+exec("ffmpeg -i $input -ss 1 -vframes 1 $f1 2>&1", $o1);
+exec("ffmpeg -i $input -ss 2 -vframes 1 $f2 2>&1", $o2);
+exec("ffmpeg -i $input -ss 3 -vframes 1 $f3 2>&1", $o3);
 
-if (!file_exists($f1)) {
-    echo json_encode(["error" => "Processing failed"]);
+if (!file_exists($f1) || !file_exists($f2) || !file_exists($f3)) {
+    unlink($input);
+    echo json_encode([
+        "error" => "Processing failed",
+        "debug1" => $o1,
+        "debug2" => $o2,
+        "debug3" => $o3
+    ]);
     exit;
 }
 
