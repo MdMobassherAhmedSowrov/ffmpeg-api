@@ -39,38 +39,12 @@ fclose($fp);
 $process_file = $input;
 
 if ($is_tgs) {
-    $gif = "converted_$id.gif";
+    $gif = $input . ".gif";
     
-    $commands = [
-        "lottie_convert.py",
-        "lottie_convert",
-        "/usr/local/bin/lottie_convert.py",
-        "/usr/local/bin/lottie_convert",
-        "python3 /usr/local/bin/lottie_convert.py"
-    ];
+    exec("node cli.js " . escapeshellarg($input) . " 2>&1", $output, $return_var);
     
-    $success = false;
-    $debug_logs = [];
-    
-    foreach ($commands as $cmd) {
-        $output = [];
-        $return_var = -1;
-        $full_cmd = $cmd . " " . escapeshellarg($input) . " " . escapeshellarg($gif) . " 2>&1";
-        exec($full_cmd, $output, $return_var);
-        
-        if (file_exists($gif) && filesize($gif) > 0) {
-            $success = true;
-            break;
-        } else {
-            $debug_logs[$cmd] = $output;
-        }
-    }
-    
-    if (!$success) {
-        echo json_encode([
-            "error" => "TGS conversion failed completely", 
-            "debug" => $debug_logs
-        ]);
+    if (!file_exists($gif)) {
+        echo json_encode(["error" => "Node TGS conversion failed", "debug" => $output]);
         @unlink($input);
         exit;
     }
