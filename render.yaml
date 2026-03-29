@@ -1,8 +1,4 @@
 services:
   - type: web
     name: ffmpeg-api
-    env: php
-    buildCommand: |
-      apt-get update
-      apt-get install -y ffmpeg
-    startCommand: php -S 0.0.0.0:10000
+    env: docker
