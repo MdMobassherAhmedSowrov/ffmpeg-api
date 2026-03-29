@@ -40,9 +40,37 @@ $process_file = $input;
 
 if ($is_tgs) {
     $gif = "converted_$id.gif";
-    exec("python3 -m lottie.convert " . escapeshellarg($input) . " " . escapeshellarg($gif) . " 2>&1", $output, $return_var);
-    if (!file_exists($gif)) {
-        echo json_encode(["error" => "TGS conversion failed", "debug" => $output]);
+    
+    $commands = [
+        "lottie_convert.py",
+        "lottie_convert",
+        "/usr/local/bin/lottie_convert.py",
+        "/usr/local/bin/lottie_convert",
+        "python3 /usr/local/bin/lottie_convert.py"
+    ];
+    
+    $success = false;
+    $debug_logs = [];
+    
+    foreach ($commands as $cmd) {
+        $output = [];
+        $return_var = -1;
+        $full_cmd = $cmd . " " . escapeshellarg($input) . " " . escapeshellarg($gif) . " 2>&1";
+        exec($full_cmd, $output, $return_var);
+        
+        if (file_exists($gif) && filesize($gif) > 0) {
+            $success = true;
+            break;
+        } else {
+            $debug_logs[$cmd] = $output;
+        }
+    }
+    
+    if (!$success) {
+        echo json_encode([
+            "error" => "TGS conversion failed completely", 
+            "debug" => $debug_logs
+        ]);
         @unlink($input);
         exit;
     }
@@ -58,10 +86,9 @@ exec("ffmpeg -y -i " . escapeshellarg($process_file) . " -ss 2 -vframes 1 " . es
 exec("ffmpeg -y -i " . escapeshellarg($process_file) . " -ss 2.9 -vframes 1 " . escapeshellarg($f3) . " 2>&1");
 
 if (!file_exists($f1) || !file_exists($f2) || !file_exists($f3)) {
-    echo json_encode(["error" => "Frame extraction failed"]);
-    @unlink($input);
-    if($is_tgs) @unlink($process_file);
-    exit;
+    if (!file_exists($f1)) exec("ffmpeg -y -i " . escapeshellarg($process_file) . " -vframes 1 " . escapeshellarg($f1) . " 2>&1");
+    if (!file_exists($f2)) @copy($f1, $f2);
+    if (!file_exists($f3)) @copy($f1, $f3);
 }
 
 $base = "https://" . $_SERVER['HTTP_HOST'] . "/";
