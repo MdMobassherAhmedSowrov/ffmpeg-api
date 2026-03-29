@@ -2,7 +2,7 @@
 
 header("Content-Type: application/json");
 
-$files = array_merge(glob("*.png"), glob("*.webm"), glob("*.tgs"), glob("*.gif"));
+$files = array_merge(glob("*.png"), glob("*.webm"));
 $now = time();
 
 foreach ($files as $file) {
@@ -17,11 +17,15 @@ if (!isset($_REQUEST['url'])) {
 }
 
 $url = $_REQUEST['url'];
+
+if (strpos($url, ".tgs") !== false) {
+    echo json_encode(["error" => "TGS not supported"]);
+    exit;
+}
+
 $id = uniqid();
 
-$is_tgs = strpos($url, ".tgs") !== false;
-
-$input = $is_tgs ? "input_$id.tgs" : "input_$id.webm";
+$input = "input_$id.webm";
 
 $ch = curl_init($url);
 $fp = fopen($input, 'wb');
@@ -29,12 +33,28 @@ $fp = fopen($input, 'wb');
 curl_setopt($ch, CURLOPT_FILE, $fp);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0");
-curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
 curl_exec($ch);
+curl_close($ch);
+fclose($fp);
 
-if (curl_errno($ch)) {
-    echo json_encode(["error" => "Download failed"]);
+$f1 = "f1_$id.png";
+$f2 = "f2_$id.png";
+$f3 = "f3_$id.png";
+
+exec("ffmpeg -i $input -ss 1 -vframes 1 $f1");
+exec("ffmpeg -i $input -ss 2 -vframes 1 $f2");
+exec("ffmpeg -i $input -ss 3 -vframes 1 $f3");
+
+$base = "https://ffmpeg-api-1-wwn7.onrender.com/";
+
+echo json_encode([
+    "f1" => $base . $f1,
+    "f2" => $base . $f2,
+    "f3" => $base . $f3
+]);
+
+unlink($input);    echo json_encode(["error" => "Download failed"]);
     curl_close($ch);
     fclose($fp);
     exit;
